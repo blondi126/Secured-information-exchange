@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Client": {
+      "commandName": "Project"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "environmentVariables": {},
+      "distributionName": ""
+    }
+  }
+}
