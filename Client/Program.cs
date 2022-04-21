@@ -2,12 +2,14 @@
 using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
-using Client;
+using Encoder;
 
 const int port = 8005;
 const string address = "127.0.0.1";
 
 BigInteger K;
+var publicKey = RSA.GetOpenKey();
+var privateKey = RSA.GetCloseKey();
 
 var ipPoint = new IPEndPoint(IPAddress.Parse(address), port);
 
@@ -15,7 +17,7 @@ var ipPoint = new IPEndPoint(IPAddress.Parse(address), port);
 
 try
 {
-    var secretKey = GetSharedSecret(ipPoint);
+    GetSharedSecret(ipPoint);
 
     DataExchange();
 }
@@ -24,12 +26,12 @@ catch (Exception ex)
     Console.WriteLine(ex.Message);
 }
 
-BigInteger GetSharedSecret(EndPoint ip)
+void GetSharedSecret(EndPoint ip)
 {
     var s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
     s.Connect(ip);
 
-    Console.WriteLine("Подключение прошло успешно.");
+    Console.WriteLine("Устанавливаем соединение.");
 
     var b = GetRandCount(128);
     Console.WriteLine($"Сгенерирован закрытый ключ b = {b}");
@@ -52,17 +54,18 @@ BigInteger GetSharedSecret(EndPoint ip)
 
     var B = BigIntKeyGeneration(g, b, p);
 
-    s.Send(Encoding.Unicode.GetBytes($"{B}"));
+    s.Send(Encoding.Unicode.GetBytes($"{B},{publicKey.Key1},{publicKey.Key2}"));
     Console.WriteLine($"Отправлен ключ B = {B}.");
 
     K = BigIntKeyGeneration(A, b, p);
 
     Console.WriteLine($"Посчитан общий секретный ключ K = {K}");
+    Console.WriteLine("Канал готов к передаче данных.");
+    Console.WriteLine($"Мой открытый ключ цифровой подписи: {{{publicKey.Key1} {publicKey.Key2}}}");
+  //  Console.WriteLine($"Мой закрытый ключ цифровой подписи: {{{privateKey.Key1} {privateKey.Key2}}}");
 
     s.Shutdown(SocketShutdown.Both);
     s.Close();
-
-    return K;
 }
 
 
@@ -73,14 +76,22 @@ void DataExchange()
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         socket.Connect(ipPoint!);
 
-        Console.WriteLine("Введите сообщение:");
+        Console.WriteLine("\nВведите сообщение:");
         var message = Console.ReadLine();
 
         if (!string.IsNullOrEmpty(message))
         {
-            var data = Encoding.Unicode.GetBytes(message);
-            var key = Encoding.Unicode.GetBytes($"{K}");
+            var messageHash = Hash.Bob_faq6_hash(message);
+            var messageHashBytes = BitConverter.GetBytes(messageHash);
+            var text = Encoding.Unicode.GetBytes(message);
 
+            var sign = GenerateDigitalSign(messageHashBytes, privateKey);
+            //Console.WriteLine("Подпись в хексах: " + BitConverter.ToString(sign));
+            //Console.WriteLine("Сообщение в хексах: " + BitConverter.ToString(text));
+            //Console.WriteLine("Хэш сообщения в хексах: " + BitConverter.ToString(messageHashBytes));
+            var data = sign.Concat(text).ToArray();
+
+            var key = Encoding.Unicode.GetBytes($"{K}");
             var encoder = new RC4(key);
 
             var encryptedData = encoder.Encode(data);
@@ -116,4 +127,20 @@ BigInteger GetRandCount(int bits)
 BigInteger BigIntKeyGeneration(BigInteger a, BigInteger b, BigInteger p)
 {
     return BigInteger.ModPow(a, b, p);
+}
+
+byte[] GenerateDigitalSign(byte[] data, KeyPair keyPair)
+{
+    var message = new BigInteger(data);
+  //  Console.WriteLine("Хэш сообщения в числовом виде:" + message);
+    var num = BigInteger.ModPow(message, keyPair.Key1, keyPair.Key2);
+  // Console.WriteLine($"Подпись в числовом виде: {message} ^ {keyPair.Key1} mod {keyPair.Key2} = {num}");
+    var numBytes = num.ToByteArray();
+    var size = BitConverter.GetBytes(numBytes.Length).ToArray()[0];
+   // Console.WriteLine($"Размер подписи: {size}");
+    var result = new byte[numBytes.Length + 1];
+    numBytes.CopyTo(result, 1);
+    result[0] = size;
+   // Console.WriteLine(BitConverter.ToString(result));
+    return result;
 }

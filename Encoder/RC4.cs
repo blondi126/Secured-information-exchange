@@ -1,4 +1,4 @@
-﻿namespace Client
+﻿namespace Encoder
 {
     public class RC4
     {
@@ -53,6 +53,13 @@
             Swap(S, _x, _y);
 
             return S[(S[_x] + S[_y]) % 256];
+        }
+
+        public byte[] Decode(byte[] encryptedData, int size)
+        {
+            var data = encryptedData.Take(size).ToArray();
+
+            return Encode(data);
         }
     }
 }
