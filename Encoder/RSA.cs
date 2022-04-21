@@ -1,4 +1,6 @@
-﻿namespace Encoder
+﻿using System.Numerics;
+
+namespace Encoder
 {
     public static class RSA
     {
@@ -71,6 +73,31 @@
                 Key1 = _d,
                 Key2 = _n
             };
+        }
+
+        public static IEnumerable<byte> GenerateDigitalSign(byte[] data, KeyPair keyPair)
+        {
+            var message = new BigInteger(data);
+
+            var num = BigInteger.ModPow(message, keyPair.Key1, keyPair.Key2);
+            var numBytes = num.ToByteArray();
+
+            var result = new byte[numBytes.Length + 1];
+            numBytes.CopyTo(result, 1);
+
+            var size = BitConverter.GetBytes(numBytes.Length).ToArray()[0];
+            result[0] = size;
+
+            return result;
+        }
+
+        public static bool VerifySignature(byte[] signature, byte[] messageHash, KeyPair keyPair)
+        {
+            var sign = new BigInteger(signature);
+
+            var messagePrototype = BigInteger.ModPow(sign, keyPair.Key1, keyPair.Key2);
+
+            return messagePrototype == new BigInteger(messageHash);
         }
     }
 }

@@ -47,12 +47,12 @@ void GetSharedSecret(EndPoint ip)
 
     Console.WriteLine($"Получены ключи p = {p}, g = {g} и A = {A}.");
 
-    var B = BigIntKeyGeneration(g, b, p);
+    var B = KeyGeneration(g, b, p);
 
     s.Send(Encoding.Unicode.GetBytes($"{B},{publicKey.Key1},{publicKey.Key2}"));
     Console.WriteLine($"Отправлен ключ B = {B}.");
 
-    K = BigIntKeyGeneration(A, b, p);
+    K = KeyGeneration(A, b, p);
 
     Console.WriteLine($"Посчитан общий секретный ключ K = {K}");
     Console.WriteLine("Канал готов к передаче данных.");
@@ -78,7 +78,7 @@ void DataExchange()
 
             var messageHash = Hash.Bob_faq6_hash(message);
             var messageHashBytes = BitConverter.GetBytes(messageHash);
-            var sign = GenerateDigitalSign(messageHashBytes, privateKey);
+            var sign = RSA.GenerateDigitalSign(messageHashBytes, privateKey);
 
             var data = sign.Concat(text).ToArray();
 
@@ -112,23 +112,7 @@ BigInteger GetRandCount(int bits)
     return result > 0 ? result : -result;
 }
 
-BigInteger BigIntKeyGeneration(BigInteger a, BigInteger b, BigInteger p)
+BigInteger KeyGeneration(BigInteger a, BigInteger b, BigInteger p)
 {
     return BigInteger.ModPow(a, b, p);
-}
-
-IEnumerable<byte> GenerateDigitalSign(byte[] data, KeyPair keyPair)
-{
-    var message = new BigInteger(data);
-
-    var num = BigInteger.ModPow(message, keyPair.Key1, keyPair.Key2);
-    var numBytes = num.ToByteArray();
-
-    var result = new byte[numBytes.Length + 1];
-    numBytes.CopyTo(result, 1);
-
-    var size = BitConverter.GetBytes(numBytes.Length).ToArray()[0];
-    result[0] = size;
-
-    return result;
 }

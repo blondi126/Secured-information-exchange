@@ -34,7 +34,7 @@ void GetSharedSecret()
     var a = GetRandCount(128);
     Console.WriteLine($"Сгенерирован закрытый ключ a = {a}");
 
-    var A = BigIntKeyGeneration(g, a, p);
+    var A = KeyGeneration(g, a, p);
 
     var handler = listenSocket!.Accept();
     Console.WriteLine("Устанавливаем соединение.");
@@ -58,7 +58,7 @@ void GetSharedSecret()
 
     Console.WriteLine($"Получен ключ B = {B}");
 
-    K = BigIntKeyGeneration(B, a, p);
+    K = KeyGeneration(B, a, p);
     Console.WriteLine($"Посчитан общий секретный ключ K = {K}");
     Console.WriteLine("Канал готов к передаче данных.\n");
 
@@ -75,7 +75,7 @@ BigInteger GetRandCount(int bits)
     return result > 0 ? result : -result;
 }
 
-BigInteger BigIntKeyGeneration(BigInteger a, BigInteger b, BigInteger p)
+BigInteger KeyGeneration(BigInteger a, BigInteger b, BigInteger p)
 {
     return BigInteger.ModPow(a, b, p);
 }
@@ -111,7 +111,7 @@ void DataExchange()
         var messageHash = Hash.Bob_faq6_hash(receivedMessage);
         var messageHashBytes = BitConverter.GetBytes(messageHash);
 
-        if (VerifySignature(sign, messageHashBytes, publicClientKey))
+        if (RSA.VerifySignature(sign, messageHashBytes, publicClientKey))
             Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + receivedMessage);
         else
             Console.WriteLine("The digital signature has been violated.");
@@ -123,13 +123,4 @@ void DataExchange()
         handler.Shutdown(SocketShutdown.Both);
         handler.Close();
     }
-}
-
-bool VerifySignature(byte[] signature, byte[] messageHash, KeyPair keyPair)
-{
-    var sign = new BigInteger(signature);
-
-    var messagePrototype = BigInteger.ModPow(sign, keyPair.Key1, keyPair.Key2);
-
-    return messagePrototype == new BigInteger(messageHash);
 }
