@@ -43,7 +43,7 @@
         public static int GetPRoot(int p)
         {
             for (var i = 2; i < p; i++)
-                if (IsPRoot(p, i))
+                if (IsPRoot(p, i))  
                     return i;
             return 0;
         }
@@ -55,7 +55,7 @@
             for (long i = 0; i < p - 1; i++)
             {
                 last = (last * a) % p;
-                if (set.Contains(last)) // Если повтор
+                if (set.Contains(last)) 
                     return false;
                 set.Add(last);
             }

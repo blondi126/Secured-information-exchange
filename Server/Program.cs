@@ -6,30 +6,26 @@ using System.Text;
 
 const int port = 8005;
 const string address = "127.0.0.1";
+
 BigInteger K;
+
 var publicClientKey = new KeyPair();
-
 var ipPoint = new IPEndPoint(IPAddress.Parse(address), port);
-
 var listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
 try
 {
     listenSocket.Bind(ipPoint);
-
     listenSocket.Listen(1);
-
     Console.WriteLine("Сервер запущен. Ожидание подключений...");
 
     GetSharedSecret();
-
     DataExchange();
 }
 catch (Exception ex)
 {
     Console.WriteLine(ex.Message);
 }
-
 
 void GetSharedSecret()
 {
@@ -56,18 +52,15 @@ void GetSharedSecret()
     } while (handler.Available > 0);
 
     var keys = builder.ToString().Split(',');
-   
     var B = BigInteger.Parse(keys[0]);
     publicClientKey.Key1 = long.Parse(keys[1]);
     publicClientKey.Key2 = long.Parse(keys[2]);
-
 
     Console.WriteLine($"Получен ключ B = {B}");
 
     K = BigIntKeyGeneration(B, a, p);
     Console.WriteLine($"Посчитан общий секретный ключ K = {K}");
     Console.WriteLine("Канал готов к передаче данных.\n");
-   // Console.WriteLine($"Открытый ключ цифровой подписи клиента: {{{publicClientKey.Key1} {publicClientKey.Key2}}}");
 
     handler.Shutdown(SocketShutdown.Both);
     handler.Close();
@@ -104,29 +97,24 @@ void DataExchange()
         {
             var bytes = handler.Receive(encryptedData);
             var decryptedData = decoder.Decode(encryptedData, bytes);
-            var signSize = decryptedData.First();
-           // Console.WriteLine("size :" + signSize);
-            sign = decryptedData.Skip(1).Take(signSize).ToArray();
-            //Console.WriteLine("Подпись в хексах: " + BitConverter.ToString(sign));
-            var text = decryptedData.Skip(signSize+1).ToArray();
-            //Console.WriteLine("Сообщение в хексах: " + BitConverter.ToString(text));
 
+            var signSize = decryptedData.First();
+
+            sign = decryptedData.Skip(1).Take(signSize).ToArray();
+
+            var text = decryptedData.Skip(signSize + 1).ToArray();
             builder.Append(Encoding.Unicode.GetString(text));
-            
         }
         while (handler.Available > 0);
 
         var receivedMessage = builder.ToString();
-       // Console.WriteLine($"Полученное сообщение: {receivedMessage}");
         var messageHash = Hash.Bob_faq6_hash(receivedMessage);
         var messageHashBytes = BitConverter.GetBytes(messageHash);
-        //Console.WriteLine("Хэш полученного сообщения в хексах: " + BitConverter.ToString(messageHashBytes));
 
         if (VerifySignature(sign, messageHashBytes, publicClientKey))
             Console.WriteLine(DateTime.Now.ToShortTimeString() + ": " + receivedMessage);
         else
             Console.WriteLine("The digital signature has been violated.");
-        
 
         const string message = "Ваше сообщение доставлено.";
         var data = Encoding.Unicode.GetBytes(message);
@@ -140,10 +128,8 @@ void DataExchange()
 bool VerifySignature(byte[] signature, byte[] messageHash, KeyPair keyPair)
 {
     var sign = new BigInteger(signature);
-    //Console.WriteLine("Подпись в числовом виде: " + sign);
+
     var messagePrototype = BigInteger.ModPow(sign, keyPair.Key1, keyPair.Key2);
-    
-    //Console.WriteLine($"Хэш сообщения в числовом виде: {sign} ^ {keyPair.Key1} mod {keyPair.Key2} = {messagePrototype}");
+
     return messagePrototype == new BigInteger(messageHash);
 }
-
